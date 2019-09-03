@@ -666,7 +666,7 @@ export default {
           .append('image')
           .attr('href', () => {
             if (node) {
-              const imagePath = `${window.location.origin}/img/${node.typeName}.png`
+              const imagePath = `./img/${node.typeName}.png`
               this.getUrlBase64(imagePath, 'png', (data) => {
                 if (!imageObject[node.typeName]) {
                   imageObject[node.typeName] = data
