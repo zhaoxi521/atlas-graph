@@ -726,9 +726,13 @@ export default {
 
       // 设置放大倍数
       const scale = 'scale(1.3)'
+      // 拖拽的状态
+      let dragging = false
       // 设置hover事件
       svgGroup.selectAll('g.nodes g.node circle')
         .on('mouseenter', function (d) {
+          // 正在拖拽
+          if (dragging) return
           // 设置放大效果
           // 获取d3DOM实例
           const current = d3.select(this.parentNode)
@@ -760,6 +764,8 @@ export default {
           })
         })
         .on('mouseleave', function () {
+          // 正在拖拽
+          if (dragging) return
           // 获取d3DOM实例
           const current = d3.select(this.parentNode)
           current.attr('transform', `${current.attr('transform').replace(scale, '')}`)
@@ -773,8 +779,77 @@ export default {
           })
         })
         .on('click', function (d) {
+          if (d3.event.defaultPrevented) return
           alert(d)
         })
+        .call(d3.drag()
+          .on('start', dragStarted)
+          .on('drag', dragged)
+          .on('end', dragEnd))
+
+      // 拖拽事件
+      function dragStarted () {
+        // 拖拽开始
+        dragging = true
+        d3.event.sourceEvent.stopPropagation()
+      }
+
+      function dragged (d) {
+        // =====================================
+        // 修改节点位置
+        // 获取当前的node的选择器实例
+        const nodeSelection = d3.select(this.parentNode)
+        // 获取当前的node
+        const node = that.g.node(d)
+        // 更新后的位置
+        node.x += d3.event.x
+        node.y += d3.event.y
+        // 更新节点
+        nodeSelection.attr('transform', `translate(${node.x},${node.y})${scale}`)
+        // =====================================
+        // 修改线的位置
+        that.g.edges().forEach(t => {
+          if (t.v === d || t.w === d) {
+            // 得到所有的连线数据
+            const edge = that.g.edge(t.v, t.w)
+            // 更新点位置
+            edge.points.forEach(p => {
+              p.x = p.x + d3.event.x
+              p.y = p.y + d3.event.y
+            })
+            const points = edge.points.slice(1, edge.points.length - 1)
+            points.unshift(intersectRect(that.g.node(t.v), edge.points[0]))
+            points.push(intersectRect(that.g.node(t.w), edge.points[edge.points.length - 1]))
+            // 更新线的位置
+            const selection = d3.select(edge.elem).select('path')
+            selection.attr('d', d3.line().x(m => m.x).y(m => m.y).curve(d3.curveBasis)(points))
+          }
+        })
+      }
+
+      function dragEnd () {
+        // 拖拽结束
+        dragging = false
+      }
+
+      // 交叉位置
+      function intersectRect (node, point) {
+        console.log(node)
+        let x = node.x; let y = node.y; let dx = point.x - x; let dy = point.y - y; let w = node.guid === that.guid ? 24 : 21; let h = node.id === that.guid ? 24 : 21; let sx = 0; let sy = 0
+        if (Math.abs(dy) * w > Math.abs(dx) * h) {
+          dy < 0 && (h = -h)
+          sx = dy === 0 ? 0 : h * dx / dy
+          sy = h
+        } else {
+          dx < 0 && (w = -w)
+          sx = w
+          sy = dx === 0 ? 0 : w * dy / dx
+        }
+        return {
+          x: x + sx,
+          y: y + sy
+        }
+      }
     },
     // 渲染视图
     renderGraph () {
